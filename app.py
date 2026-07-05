@@ -1,1120 +1,523 @@
-import io
-import json
-import os
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+# ==========================================================
+# NutriVision AI v2.0
+# ==========================================================
 
-import numpy as np
 import streamlit as st
-import tensorflow as tf
+from utils import *
+from components import *
 
-from dotenv import dotenv_values, load_dotenv
-from google import genai
-from google.genai import types
+# ==========================================================
+# PAGE CONFIG
+# ==========================================================
 
-from PIL import Image, UnidentifiedImageError
+st.set_page_config(
+    page_title="Vision-to-Nutrition",
+    page_icon="🍃",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-from tensorflow.keras.applications.efficientnet import preprocess_input
+# ==========================================================
+# LOAD CSS
+# ==========================================================
+
+with open("style.css") as css:
+    st.markdown(
+        f"<style>{css.read()}</style>",
+        unsafe_allow_html=True
+    )
 
 
 # ==========================================================
-# APP CONFIG
+# SESSION STATE
 # ==========================================================
 
-APP_TITLE = "🍽️ AI Indian Food Nutrition Assistant"
+if "analysis" not in st.session_state:
+    st.session_state.analysis = None
 
-BASE_DIR = Path(__file__).resolve().parent
+if "prediction" not in st.session_state:
+    st.session_state.prediction = None
 
-MODEL_PATH = BASE_DIR / "best_efficientnet.keras"
+if "confidence" not in st.session_state:
+    st.session_state.confidence = None
 
-CLASS_FILE = BASE_DIR / "class_names.json"
+if "top5" not in st.session_state:
+    st.session_state.top5 = None
 
-GEMINI_MODEL = "gemini-2.5-flash"
+# ==========================================================
+# SIDEBAR
+# ==========================================================
+
+with st.sidebar:
+
+    st.image(
+        "https://img.icons8.com/color/480/artificial-intelligence.png",
+        width=90
+    )
+
+    st.title("Vision-to-Nutrition")
+    st.caption("Intelligent Food Analysis using EfficientNet & Gemini")
+
+    st.divider()
+
+    st.markdown("### 🤖 AI Model")
+
+    st.success("EfficientNetB0")
+
+    st.info("80 Indian Food Classes")
+
+    st.info("Gemini 2.5 Flash")
+
+    st.info("Validation Accuracy\n\n69.92%")
+
+    st.divider()
+
+    st.markdown("### 👨‍💻 Developer")
+
+    st.write("Yashwanth")
+
+    st.divider()
 
 
 # ==========================================================
-# LOAD MODEL
+# HERO
 # ==========================================================
 
-@st.cache_resource
-def load_food_model():
-    return tf.keras.models.load_model(MODEL_PATH)
-
-
-food_model = load_food_model()
-
+hero_header()
 
 # ==========================================================
-# LOAD CLASS NAMES
+# TOP CONTROL PANEL
 # ==========================================================
 
-@st.cache_data
-def load_classes():
+st.markdown("## 📤 Upload & Analyze")
 
-    with open(CLASS_FILE, "r") as f:
+c1,c2,c3,c4,c5,c6,c7 = st.columns(
+    [2.4,2.2,1,1,1,1,1.5]
+)
 
-        return json.load(f)
+# Upload
 
+with c1:
 
-CLASS_NAMES = load_classes()
+    uploaded_file = st.file_uploader(
+        "Upload Image",
+        type=["jpg","jpeg","png"],
+        label_visibility="collapsed"
+    )
 
+# Camera
+
+with c2:
+
+    camera_file = st.camera_input(
+        "Camera"
+    )
+
+if uploaded_file is None and camera_file is not None:
+    uploaded_file = camera_file
+
+# User Details
+
+with c3:
+
+    age = st.number_input(
+        "Age",
+        10,
+        100,
+        22
+    )
+
+with c4:
+
+    gender = st.selectbox(
+        "Gender",
+        ["Male","Female"]
+    )
+
+with c5:
+
+    height_cm = st.number_input(
+        "Height",
+        120,
+        220,
+        170
+    )
+
+with c6:
+
+    weight = st.number_input(
+        "Weight",
+        30,
+        180,
+        70
+    )
+
+height = height_cm / 100
+
+bmi = calculate_bmi(
+    weight,
+    height
+)
+
+bmi_status = bmi_category(
+    bmi
+)
+
+# Analyze Button
+
+with c7:
+
+    st.write("")
+
+    analyze_btn = st.button(
+        "🚀 Analyze",
+        use_container_width=True,
+        disabled=uploaded_file is None
+    )
+
+st.write("")
 
 # ==========================================================
-# IMAGE PREPROCESSING
+# MAIN DASHBOARD
 # ==========================================================
 
-def preprocess_image(
-        uploaded_file,
-        max_size=(1024, 1024)
-):
+left_col, right_col = st.columns(
+    [1.2,1]
+)
+# ==========================================================
+# LEFT PANEL
+# ==========================================================
+
+with left_col:
+
+    st.markdown("## 📷 Food Image")
 
     if uploaded_file is None:
 
-        raise ValueError(
-            "Please upload an image."
-        )
+        st.markdown("""
+        <div class="glass-card"
+        style="
+        height:450px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        flex-direction:column;
+        ">
 
-    try:
+        <h1 style="font-size:80px;">🍽️</h1>
 
-        image = Image.open(uploaded_file)
+        <h3>No Image Selected</h3>
 
-        image.verify()
+        <p>
+        Upload or capture a food image to begin.
+        </p>
 
-        uploaded_file.seek(0)
-
-        image = Image.open(uploaded_file).convert("RGB")
-
-    except (
-        UnidentifiedImageError,
-        OSError
-    ):
-
-        raise ValueError(
-            "Invalid image."
-        )
-
-    image.thumbnail(max_size)
-
-    buffer = io.BytesIO()
-
-    image.save(
-        buffer,
-        format="JPEG",
-        quality=90
-    )
-
-    return image, buffer.getvalue()
-
-
-# ==========================================================
-# CNN PREDICTION
-# ==========================================================
-
-def predict_food_category(image):
-
-    img = image.resize((224,224))
-
-    img = np.array(img).astype(np.float32)
-
-    img = preprocess_input(img)
-
-    img = np.expand_dims(img, axis=0)
-
-    prediction = food_model.predict(
-        img,
-        verbose=0
-    )[0]
-
-    top5 = prediction.argsort()[-5:][::-1]
-
-    results = []
-
-    for idx in top5:
-
-        results.append({
-
-            "food": CLASS_NAMES[idx],
-
-            "confidence": float(
-                prediction[idx]*100
-            )
-
-        })
-
-    return results
-# ==========================================================
-# BMI FUNCTIONS
-# ==========================================================
-
-def calculate_bmi(weight_kg, height_m):
-
-    if height_m <= 0:
-        raise ValueError("Height must be greater than 0")
-
-    return weight_kg / (height_m ** 2)
-
-
-def classify_bmi(bmi):
-
-    if bmi < 18.5:
-        return "Underweight"
-
-    elif bmi < 25:
-        return "Normal"
-
-    elif bmi < 30:
-        return "Overweight"
+        </div>
+        """,
+        unsafe_allow_html=True)
 
     else:
-        return "Obese"
 
+        image, image_bytes = preprocess_image(uploaded_file)
 
-# ==========================================================
-# GEMINI API
-# ==========================================================
-
-def get_api_key():
-
-    env_path = BASE_DIR / ".env"
-
-    load_dotenv(env_path)
-
-    key = ""
-
-    if env_path.exists():
-
-        key = dotenv_values(
-            env_path
-        ).get(
-            "GOOGLE_API_KEY",
-            ""
-        )
-
-    try:
-
-        secret = st.secrets.get(
-            "GOOGLE_API_KEY",
-            ""
-        )
-
-    except:
-
-        secret = ""
-
-    return (
-        key
-        or secret
-        or os.getenv("GOOGLE_API_KEY", "")
-    ).strip()
-
-
-# ==========================================================
-# JSON PARSER
-# ==========================================================
-
-def extract_json(text):
-
-    text = text.strip()
-
-    if text.startswith("```"):
-
-        text = text.replace(
-            "```json",
-            ""
-        )
-
-        text = text.replace(
-            "```",
-            ""
-        )
-
-    start = text.find("{")
-
-    end = text.rfind("}")
-
-    if start != -1:
-
-        text = text[start:end+1]
-
-    try:
-
-        return json.loads(text)
-
-    except:
-
-        return {
-
-            "dish_name":"Unknown",
-
-            "confidence":"Low",
-
-            "ingredients":[],
-
-            "nutrition":{
-
-                "calories":"N/A",
-
-                "protein":"N/A",
-
-                "fat":"N/A",
-
-                "carbohydrates":"N/A"
-
-            },
-
-            "recipe":[],
-
-            "alternatives":[],
-
-            "portion_assumption":"Unknown"
-
-        }
-
-
-# ==========================================================
-# GEMINI VISION
-# ==========================================================
-
-def generate_ai_response(
-        image_bytes,
-        user_context=""
-):
-
-    api_key = get_api_key()
-
-    if api_key == "":
-
-        raise RuntimeError(
-            "Gemini API key missing."
-        )
-
-    client = genai.Client(
-        api_key=api_key
-    )
-    prompt = f"""
-You are an expert Indian food recognition and nutrition assistant.
-
-The uploaded image is the PRIMARY source of truth.
-
-An EfficientNetB0 deep learning classifier has already predicted the possible food categories.
-
-The CNN predictions are only supporting information.
-
-If the image and CNN prediction disagree,
-ALWAYS trust the image.
-
-User Information:
-{user_context}
-
-Return ONLY valid JSON in this format:
-
-{{
-"dish_name":"",
-"confidence":"High/Medium/Low",
-
-"ingredients":[
-"",
-""
-],
-
-"nutrition":{{
-"calories":"",
-"protein":"",
-"fat":"",
-"carbohydrates":""
-}},
-
-"recipe":[
-"",
-"",
-""
-],
-
-"alternatives":[
-"",
-"",
-""
-],
-
-"portion_assumption":""
-}}
-
-Rules:
-
-1. Identify the food from the IMAGE.
-
-2. Ignore wrong CNN predictions.
-
-3. Nutrition values should be realistic.
-
-4. Recipe should contain 5–7 short steps.
-
-5. Alternatives should be healthier foods whenever possible.
-
-6. Output ONLY JSON.
-"""
-
-    response = client.models.generate_content(
-
-        model=GEMINI_MODEL,
-
-        contents=[
-
-            prompt,
-
-            types.Part.from_bytes(
-
-                data=image_bytes,
-
-                mime_type="image/jpeg"
-
-            )
-
-        ]
-
-    )
-
-    if response is None:
-
-        raise RuntimeError(
-            "Gemini returned nothing."
-        )
-
-    if response.text is None:
-
-        raise RuntimeError(
-            "Gemini returned empty response."
-        )
-
-    return extract_json(
-        response.text
-    )
-
-
-# ==========================================================
-# NUTRITION PARSER
-# ==========================================================
-
-def nutrition_number(value):
-
-    if isinstance(
-        value,
-        (int,float)
-    ):
-
-        return float(value)
-
-    value = str(value)
-
-    digits = ""
-
-    for ch in value:
-
-        if ch.isdigit() or ch==".":
-
-            digits += ch
-
-        else:
-
-            digits += " "
-
-    for token in digits.split():
-
-        try:
-
-            return float(token)
-
-        except:
-
-            pass
-
-    return 0.0
-# ==========================================================
-# BMI RECOMMENDATION ENGINE
-# ==========================================================
-
-def generate_recommendation(
-        bmi_category,
-        food_analysis
-):
-
-    nutrition = food_analysis.get(
-        "nutrition",
-        {}
-    )
-
-    calories = nutrition_number(
-        nutrition.get(
-            "calories",
-            0
-        )
-    )
-
-    protein = nutrition_number(
-        nutrition.get(
-            "protein",
-            0
-        )
-    )
-
-    fat = nutrition_number(
-        nutrition.get(
-            "fat",
-            0
-        )
-    )
-
-    carbs = nutrition_number(
-        nutrition.get(
-            "carbohydrates",
-            0
-        )
-    )
-
-    score = 0
-
-    reasons = []
-
-    if calories > 700:
-
-        score += 2
-
-        reasons.append(
-            "Very high calorie food"
-        )
-
-    elif calories > 450:
-
-        score += 1
-
-        reasons.append(
-            "Moderately high calories"
-        )
-
-    if fat > 30:
-
-        score += 1
-
-        reasons.append(
-            "High fat content"
-        )
-
-    if carbs > 80:
-
-        score += 1
-
-        reasons.append(
-            "High carbohydrate content"
-        )
-
-    if protein > 20:
-
-        score -= 1
-
-        reasons.append(
-            "Good protein source"
-        )
-
-    if bmi_category == "Obese":
-
-        score += 2
-
-        reasons.append(
-            "BMI indicates obesity"
-        )
-
-    elif bmi_category == "Overweight":
-
-        score += 1
-
-        reasons.append(
-            "BMI indicates overweight"
-        )
-
-    elif bmi_category == "Underweight":
-
-        score -= 1
-
-    if score <= 0:
-
-        verdict = "Safe to Eat"
-
-    elif score <= 2:
-
-        verdict = "Eat in Moderation"
-
-    else:
-
-        verdict = "Avoid Frequently"
-
-    suggestions = [
-
-        "Reduce oil and butter.",
-
-        "Prefer grilled or steamed preparation.",
-
-        "Control portion size.",
-
-        "Add vegetables or salad.",
-
-        "Avoid sugary drinks with this meal."
-
-    ]
-
-    if bmi_category == "Underweight":
-
-        suggestions.append(
-            "Increase healthy protein intake."
-        )
-
-    if bmi_category in [
-
-        "Overweight",
-
-        "Obese"
-
-    ]:
-
-        suggestions.append(
-            "Increase daily physical activity."
-        )
-
-    return {
-
-        "verdict": verdict,
-
-        "reason": ", ".join(reasons),
-
-        "suggestions": suggestions
-
-    }
-
-
-# ==========================================================
-# STREAMLIT HELPERS
-# ==========================================================
-
-def render_card(title, value):
-
-    st.markdown(
-        f"### {title}"
-    )
-
-    st.info(value)
-
-
-def render_list(items):
-
-    if isinstance(items, list):
-
-        for item in items:
-
-            st.markdown(
-                f"- {item}"
-            )
-
-    else:
-
-        st.write(items)
-# ==========================================================
-# MAIN APP
-# ==========================================================
-
-def main():
-
-    st.set_page_config(
-        page_title=APP_TITLE,
-        page_icon="🍽️",
-        layout="wide"
-    )
-
-    st.title(APP_TITLE)
-
-    st.markdown(
-        "### EfficientNetB0 + Gemini AI Food Recognition"
-    )
-
-    # ==============================
-    # Sidebar
-    # ==============================
-
-    with st.sidebar:
-
-        st.header("User Details")
-
-        age = st.number_input(
-            "Age",
-            1,
-            100,
-            25
-        )
-
-        gender = st.selectbox(
-
-            "Gender",
-
-            ["Male","Female","Other"]
-
-        )
-
-        height = st.number_input(
-
-            "Height (m)",
-
-            0.5,
-
-            2.5,
-
-            1.70,
-
-            step=0.01
-
-        )
-
-        weight = st.number_input(
-
-            "Weight (kg)",
-
-            10,
-
-            250,
-
-            70
-
-        )
-
-        bmi = calculate_bmi(
-
-            weight,
-
-            height
-
-        )
-
-        bmi_category = classify_bmi(
-
-            bmi
-
-        )
-
-        st.metric(
-
-            "BMI",
-
-            f"{bmi:.2f}",
-
-            bmi_category
-
-        )
-
-    # ==============================
-
-    col1,col2 = st.columns([1,1.2])
-
-    with col1:
-
-        option = st.radio(
-
-            "Select Image Source",
-
-            [
-
-                "Upload Image",
-
-                "Camera"
-
-            ]
-
-        )
-
-        if option=="Upload Image":
-
-            uploaded_file = st.file_uploader(
-
-                "Choose Food Image",
-
-                type=[
-
-                    "jpg",
-
-                    "jpeg",
-
-                    "png"
-
-                ]
-
-            )
-
-        else:
-
-            uploaded_file = st.camera_input(
-
-                "Capture Food"
-
-            )
-
-        notes = st.text_area(
-
-            "Extra Notes (Optional)",
-
-            ""
-
-        )
-
-    image = None
-
-    image_bytes = None
-
-    predictions = None
-
-    food_name = ""
-
-    confidence = 0
-
-    if uploaded_file is not None:
-
-        try:
-
-            image,image_bytes = preprocess_image(
-
-                uploaded_file
-
-            )
-
-            predictions = predict_food_category(
-
-                image
-
-            )
-
-            food_name = predictions[0]["food"]
-
-            confidence = predictions[0]["confidence"]
-
-            with col1:
-
-                st.image(
-
-                    image,
-
-                    use_container_width=True
-                )
-
-            st.success("Prediction Complete")
-
-        except Exception as e:
-
-            st.error(e)
-    with col2:
-
-        st.subheader("Food Analysis")
-
-        if st.button(
-            "🔍 Analyze Food",
+        st.image(
+            image,
             use_container_width=True
-        ):
+        )
 
-            if image_bytes is None:
+# ==========================================================
+# RIGHT PANEL
+# ==========================================================
 
-                st.warning(
-                    "Please upload an image first."
-                )
+with right_col:
 
-            else:
+    st.markdown("## 🤖 AI Prediction")
 
-                cnn_context = f"""
+    if uploaded_file is None:
 
-Top 5 EfficientNet Predictions
+        st.markdown("""
+        <div class="glass-card"
+        style="
+        height:450px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        flex-direction:column;
+        ">
 
-"""
+        <h1 style="font-size:80px;">🧠</h1>
 
-                for i, pred in enumerate(predictions, start=1):
+        <h3>Waiting for Image...</h3>
 
-                    cnn_context += (
-                        f"{i}. "
-                        f"{pred['food']} "
-                        f"({pred['confidence']:.2f}%)\n"
-                    )
+        <p>
+        Prediction will appear here.
+        </p>
 
-                profile = f"""
+        </div>
+        """,
+        unsafe_allow_html=True)
+
+    else:
+
+        if analyze_btn:
+
+            with st.spinner("Analyzing Food..."):
+
+                prediction, confidence, top5 = predict_food(image)
+
+                st.session_state.prediction = prediction
+
+                st.session_state.confidence = confidence
+
+                st.session_state.top5 = top5
+
+                user_context = f"""
 
 Age : {age}
 
 Gender : {gender}
 
-Height : {height}
+Height : {height_cm}
 
 Weight : {weight}
 
 BMI : {bmi:.2f}
 
-BMI Category : {bmi_category}
+BMI Status : {bmi_status}
 
-Notes : {notes}
+Predicted Food : {prediction}
 
-{cnn_context}
+Confidence : {confidence:.2f}
 
 """
 
-                with st.spinner(
-
-                    "Analyzing using Gemini..."
-
-                ):
-
-                    try:
-
-                        analysis = generate_ai_response(
-
-                            image_bytes,
-
-                            profile
-
-                        )
-
-                    except Exception as e:
-
-                        st.error(e)
-
-                        st.stop()
-
-                recommendation = generate_recommendation(
-
-                    bmi_category,
-
-                    analysis
-
+                analysis = generate_ai_response(
+                    image_bytes,
+                    user_context
                 )
 
-                # ===========================
-                # CNN Prediction
-                # ===========================
+                st.session_state.analysis = analysis
 
-                st.success("CNN Prediction")
+# ==========================================================
+# SHOW PREDICTION
+# ==========================================================
 
-                st.write(
+if st.session_state.prediction is not None:
 
-                    f"### {food_name}"
+    st.write("")
 
-                )
+    dish_name = st.session_state.analysis.get(
+    "dish_name",
+    st.session_state.prediction.replace("_", " ").title()
+)
 
-                st.write(
+    st.markdown(f"""
+    <div class="prediction-card">
 
-                    f"Confidence : "
+    <h4>🍽 Identified Dish</h4>
 
-                    f"{confidence:.2f}%"
+    <h1>{dish_name}</h1>
 
-                )
+    <p>
+    Identified using Gemini AI after visual verification.
+    </p>
 
-                st.divider()
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="glass-card">
 
-                # ===========================
-                # Gemini
-                # ===========================
+    <h4>🧠 CNN Prediction</h4>
 
-                st.success("Gemini Analysis")
+    <p><b>{st.session_state.prediction.replace("_"," ").title()}</b></p>
 
-                st.write(
+    <p>
+    Confidence: <b>{st.session_state.confidence:.2f}%</b>
+    </p>
 
-                    "###",
+    </div>
+    """, unsafe_allow_html=True)
 
-                    analysis.get(
+    st.write("")
 
-                        "dish_name",
+    top_predictions(
 
-                        "Unknown"
-
-                    )
-
-                )
-
-                st.write(
-
-                    "Confidence :",
-
-                    analysis.get(
-
-                        "confidence",
-
-                        "N/A"
-
-                    )
-
-                )
-
-                nutrition = analysis.get(
-
-                    "nutrition",
-
-                    {}
-
-                )
-
-                c1,c2,c3,c4 = st.columns(4)
-
-                with c1:
-
-                    render_card(
-
-                        "Calories",
-
-                        nutrition.get(
-
-                            "calories",
-
-                            "N/A"
-
-                        )
-
-                    )
-
-                with c2:
-
-                    render_card(
-
-                        "Protein",
-
-                        nutrition.get(
-
-                            "protein",
-
-                            "N/A"
-
-                        )
-
-                    )
-
-                with c3:
-
-                    render_card(
-
-                        "Fat",
-
-                        nutrition.get(
-
-                            "fat",
-
-                            "N/A"
-
-                        )
-
-                    )
-
-                with c4:
-
-                    render_card(
-
-                        "Carbohydrates",
-
-                        nutrition.get(
-
-                            "carbohydrates",
-
-                            "N/A"
-
-                        )
-
-                    )
-
-                st.divider()
-
-                tab1,tab2,tab3,tab4 = st.tabs(
-
-                    [
-
-                        "❤️ Recommendation",
-
-                        "🥗 Ingredients",
-
-                        "👨‍🍳 Recipe",
-
-                        "🔄 Alternatives"
-
-                    ]
-
-                )
-
-                with tab1:
-
-                    st.subheader(
-
-                        recommendation["verdict"]
-
-                    )
-
-                    st.write(
-
-                        recommendation["reason"]
-
-                    )
-
-                    st.markdown(
-
-                        "### Suggestions"
-
-                    )
-
-                    render_list(
-
-                        recommendation["suggestions"]
-
-                    )
-
-                with tab2:
-
-                    render_list(
-
-                        analysis.get(
-
-                            "ingredients",
-
-                            []
-
-                        )
-
-                    )
-
-                with tab3:
-
-                    render_list(
-
-                        analysis.get(
-
-                            "recipe",
-
-                            []
-
-                        )
-
-                    )
-
-                with tab4:
-
-                    render_list(
-
-                        analysis.get(
-
-                            "alternatives",
-
-                            []
-
-                        )
-
-                    )
-
-    st.divider()
-
-    st.caption(
-
-        "⚠️ Nutrition values are AI estimates only and should not replace professional medical advice."
+        st.session_state.top5
 
     )
 
+# ==========================================================
+# NUTRITION CARDS
+# ==========================================================
+
+analysis = st.session_state.analysis
+
+if analysis:
+
+    st.write("")
+
+    section_title("🍽 Nutrition Information")
+
+    nutrition = analysis.get("nutrition",{})
+
+    c1,c2,c3,c4 = st.columns(4)
+
+    with c1:
+
+        metric_card(
+            "🔥",
+            "Calories",
+            nutrition.get("calories","--")
+        )
+
+    with c2:
+
+        metric_card(
+            "🥩",
+            "Protein",
+            nutrition.get("protein","--")
+        )
+
+    with c3:
+
+        metric_card(
+            "🧈",
+            "Fat",
+            nutrition.get("fat","--")
+        )
+
+    with c4:
+
+        metric_card(
+            "🌾",
+            "Carbs",
+            nutrition.get("carbohydrates","--")
+        )
+# ==========================================================
+# AI INSIGHTS
+# ==========================================================
+
+if analysis:
+
+    st.write("")
+
+    section_title("🤖 AI Insights")
+
+    tab1, tab2, tab3, tab4 = st.tabs(
+        [
+            "🥗 Ingredients",
+            "👨‍🍳 Recipe",
+            "❤️ Recommendation",
+            "🔄 Alternatives"
+        ]
+    )
+
+    # ======================================================
+    # INGREDIENTS
+    # ======================================================
+
+    with tab1:
+
+        ingredients = analysis.get(
+            "ingredients",
+            []
+        )
+
+        info_card(
+            "Ingredients",
+            ingredients
+        )
+
+    # ======================================================
+    # RECIPE
+    # ======================================================
+
+    with tab2:
+
+        recipe = analysis.get(
+            "recipe",
+            []
+        )
+
+        st.markdown(
+            '<div class="glass-card">',
+            unsafe_allow_html=True
+        )
+
+        st.subheader("👨‍🍳 Recipe")
+
+        if recipe:
+
+            for i, step in enumerate(recipe, 1):
+
+                st.markdown(
+                    f"""
+### Step {i}
+
+{step}
+
+---
+"""
+                )
+
+        else:
+
+            st.info(
+                "Recipe unavailable."
+            )
+
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    # ======================================================
+    # RECOMMENDATION
+    # ======================================================
+
+    with tab3:
+
+        recommendation = generate_recommendation(
+            bmi_status,
+            analysis
+        )
+
+        recommendation_card(
+            recommendation
+        )
+
+    # ======================================================
+    # ALTERNATIVES
+    # ======================================================
+
+    with tab4:
+
+        alternatives = analysis.get(
+            "alternatives",
+            []
+        )
+
+        info_card(
+            "Healthier Alternatives",
+            alternatives
+        )
 
 # ==========================================================
-# RUN APP
+# FOOTER
 # ==========================================================
 
-if __name__ == "__main__":
+st.write("")
+st.divider()
 
-    main()
+st.markdown(
+    """
+    <center>
+
+    <h3>🍽️ Vision-to-Nutrition</h3>
+    An EfficientNet–Gemini Framework for Intelligent Food Analysis
+    Powered by EfficientNetB0 + Gemini AI
+
+    </center>
+    """,
+    unsafe_allow_html=True
+)
