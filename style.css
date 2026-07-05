@@ -1,0 +1,483 @@
+/* ==========================================================
+   NutriVision AI v2
+   Premium Dashboard Theme
+========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+html,
+body,
+[class*="css"]{
+
+    font-family:'Poppins',sans-serif;
+
+}
+
+/* ==========================================================
+BACKGROUND
+========================================================== */
+
+.stApp{
+
+background:linear-gradient(
+135deg,
+#0f172a,
+#111827,
+#1e293b
+);
+
+color:white;
+
+}
+
+/* ==========================================================
+SIDEBAR
+========================================================== */
+
+[data-testid="stSidebar"]{
+
+background:#111827;
+
+border-right:1px solid rgba(255,255,255,.08);
+
+}
+
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3{
+
+color:white;
+
+}
+
+/* ==========================================================
+HERO CARD
+========================================================== */
+
+.hero-card{
+
+padding:35px;
+
+border-radius:22px;
+
+background:linear-gradient(
+135deg,
+#4F46E5,
+#2563EB,
+#0EA5E9
+);
+
+box-shadow:0 15px 40px rgba(0,0,0,.35);
+
+margin-bottom:25px;
+
+}
+
+.hero-card h1{
+
+font-size:42px;
+
+font-weight:700;
+
+color:white;
+
+margin-bottom:10px;
+
+}
+
+.hero-card h3{
+
+color:#F8FAFC;
+
+font-weight:500;
+
+margin-bottom:5px;
+
+}
+
+.hero-card p{
+
+color:#E2E8F0;
+
+}
+
+/* ==========================================================
+GLASS CARD
+========================================================== */
+
+.glass-card{
+
+background:rgba(255,255,255,.06);
+
+backdrop-filter:blur(15px);
+
+border-radius:20px;
+
+padding:22px;
+
+border:1px solid rgba(255,255,255,.10);
+
+box-shadow:0 10px 25px rgba(0,0,0,.30);
+
+margin-bottom:20px;
+
+transition:.3s;
+
+}
+
+.glass-card:hover{
+
+transform:translateY(-5px);
+
+box-shadow:0 15px 40px rgba(59,130,246,.30);
+
+}
+
+/* ==========================================================
+PREDICTION CARD
+========================================================== */
+
+.prediction-card{
+
+background:linear-gradient(
+135deg,
+#4F46E5,
+#2563EB
+);
+
+padding:30px;
+
+border-radius:20px;
+
+color:white;
+
+text-align:center;
+
+box-shadow:0 12px 30px rgba(37,99,235,.35);
+
+margin-bottom:20px;
+
+}
+
+.prediction-card h1{
+
+font-size:38px;
+
+margin-top:15px;
+
+font-weight:700;
+
+}
+
+.prediction-card h2{
+
+margin-top:10px;
+
+font-size:28px;
+
+}
+
+/* ==========================================================
+METRIC CARD
+========================================================== */
+
+.metric-card{
+
+background:#111827;
+
+padding:22px;
+
+border-radius:18px;
+
+text-align:center;
+
+border:1px solid rgba(255,255,255,.08);
+
+transition:.3s;
+
+box-shadow:0 8px 25px rgba(0,0,0,.25);
+
+}
+
+.metric-card:hover{
+
+transform:scale(1.05);
+
+background:#1e293b;
+
+}
+
+.metric-card h1{
+
+font-size:34px;
+
+margin-bottom:10px;
+
+}
+
+.metric-card h2{
+
+font-size:28px;
+
+color:#00E5A8;
+
+margin-bottom:5px;
+
+}
+
+.metric-card p{
+
+color:#CBD5E1;
+
+font-size:16px;
+
+}
+
+/* ==========================================================
+RECOMMENDATION
+========================================================== */
+
+.recommend-card{
+
+padding:25px;
+
+border-radius:18px;
+
+background:#111827;
+
+border-left:6px solid #10B981;
+
+margin-bottom:20px;
+
+}
+
+.recommend-card h2{
+
+margin-bottom:10px;
+
+}
+
+.recommend-card p{
+
+color:#CBD5E1;
+
+line-height:1.7;
+
+}
+
+/* ==========================================================
+BUTTON
+========================================================== */
+
+.stButton>button{
+
+width:100%;
+
+height:55px;
+
+border:none;
+
+border-radius:14px;
+
+background:linear-gradient(
+135deg,
+#2563EB,
+#4F46E5
+);
+
+color:white;
+
+font-size:17px;
+
+font-weight:600;
+
+transition:.3s;
+
+}
+
+.stButton>button:hover{
+
+transform:translateY(-3px);
+
+box-shadow:0 12px 25px rgba(37,99,235,.40);
+
+}
+
+/* ==========================================================
+UPLOAD
+========================================================== */
+
+[data-testid="stFileUploader"]{
+
+background:#111827;
+
+padding:15px;
+
+border-radius:16px;
+
+border:2px dashed #3B82F6;
+
+}
+
+/* ==========================================================
+PROGRESS BAR
+========================================================== */
+
+.stProgress>div>div>div{
+
+background:linear-gradient(
+90deg,
+#22C55E,
+#0EA5E9
+);
+
+}
+
+/* ==========================================================
+METRIC
+========================================================== */
+
+[data-testid="metric-container"]{
+
+background:#111827;
+
+border-radius:15px;
+
+padding:15px;
+
+}
+
+/* ==========================================================
+TAB
+========================================================== */
+
+.stTabs [role="tab"]{
+
+background:#111827;
+
+border-radius:12px;
+
+margin-right:10px;
+
+padding:12px 20px;
+
+color:white;
+
+}
+
+.stTabs [aria-selected="true"]{
+
+background:#2563EB;
+
+}
+
+/* ==========================================================
+INPUTS
+========================================================== */
+
+.stTextInput input,
+.stNumberInput input{
+
+background:#111827;
+
+color:white;
+
+border-radius:10px;
+
+}
+
+.stSelectbox div{
+
+background:#111827;
+
+color:white;
+
+}
+
+.stSlider{
+
+color:white;
+
+}
+
+/* ==========================================================
+SUCCESS BOX
+========================================================== */
+
+.stSuccess{
+
+border-radius:12px;
+
+}
+
+/* ==========================================================
+INFO BOX
+========================================================== */
+
+.stInfo{
+
+border-radius:12px;
+
+}
+
+/* ==========================================================
+SCROLLBAR
+========================================================== */
+
+::-webkit-scrollbar{
+
+width:8px;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+background:#2563EB;
+
+border-radius:20px;
+
+}
+
+/* ==========================================================
+IMAGE
+========================================================== */
+
+img{
+
+border-radius:18px;
+
+}
+
+/* ==========================================================
+ANIMATION
+========================================================== */
+
+@keyframes fadeIn{
+
+from{
+
+opacity:0;
+
+transform:translateY(15px);
+
+}
+
+to{
+
+opacity:1;
+
+transform:translateY(0);
+
+}
+
+}
+
+.hero-card,
+.glass-card,
+.metric-card,
+.prediction-card,
+.recommend-card{
+
+animation:fadeIn .5s ease;
+
+}
