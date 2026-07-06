@@ -1,15 +1,12 @@
-# ==========================================================
-# NutriVision AI v2.0
-# ==========================================================
-
 import streamlit as st
-from utils import *
-from components import *
+from PIL import Image
+import io
 
-# ==========================================================
-# PAGE CONFIG
-# ==========================================================
+# Critical architectural imports
+from utils import load_class_names, calculate_bmi, detect_food_image, generate_ai_response, predict_food
+import components
 
+# 1. PAGE CONFIGURATION
 st.set_page_config(
     page_title="Vision-to-Nutrition",
     page_icon="🍃",
@@ -17,507 +14,188 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==========================================================
-# LOAD CSS
-# ==========================================================
+# 2. LOAD CUSTOM UI THEME LAYOUT
+try:
+    with open("style.css", "r") as css_data:
+        st.markdown(f"<style>{css_data.read()}</style>", unsafe_allow_html=True)
+except Exception:
+    pass
 
-with open("style.css") as css:
-    st.markdown(
-        f"<style>{css.read()}</style>",
-        unsafe_allow_html=True
-    )
-
-
-# ==========================================================
-# SESSION STATE
-# ==========================================================
-
+# 3. INITIALIZE ALL ENGINE STATE VARIABLES (Fixes the AttributeError)
 if "analysis" not in st.session_state:
     st.session_state.analysis = None
-
 if "prediction" not in st.session_state:
     st.session_state.prediction = None
-
 if "confidence" not in st.session_state:
     st.session_state.confidence = None
-
 if "top5" not in st.session_state:
     st.session_state.top5 = None
+if "verification_audit" not in st.session_state:
+    st.session_state.verification_audit = None
 
-# ==========================================================
-# SIDEBAR
-# ==========================================================
+# App Master Header Layout Component
+components.hero_header()
 
+# System Engine State Handlers Loading Preconditions
+label_indices = load_class_names()
+
+# 4. PREMIUM SIDEBAR SETUP BLOCK FRAME ARCHITECTURE
 with st.sidebar:
-
-    st.image(
-        "https://img.icons8.com/color/480/artificial-intelligence.png",
-        width=90
-    )
-
-    st.title("Vision-to-Nutrition")
-    st.caption("Intelligent Food Analysis using EfficientNet & Gemini")
-
-    st.divider()
-
-    st.markdown("### 🤖 AI Model")
-
-    st.success("EfficientNetB0")
-
-    st.info("80 Indian Food Classes")
-
-    st.info("Gemini 2.5 Flash")
-
-    st.info("Validation Accuracy\n\n69.92%")
-
-    st.divider()
-
-    st.markdown("### 👨‍💻 Developer")
-
-    st.write("Yashwanth")
-
-    st.divider()
-
-
-# ==========================================================
-# HERO
-# ==========================================================
-
-hero_header()
-
-# ==========================================================
-# TOP CONTROL PANEL
-# ==========================================================
-
-st.markdown("## 📤 Upload & Analyze")
-
-c1,c2,c3,c4,c5,c6,c7 = st.columns(
-    [2.4,2.2,1,1,1,1,1.5]
-)
-
-# Upload
-
-with c1:
-
-    uploaded_file = st.file_uploader(
-        "Upload Image",
-        type=["jpg","jpeg","png"],
-        label_visibility="collapsed"
-    )
-
-# Camera
-
-with c2:
-
-    camera_file = st.camera_input(
-        "Camera"
-    )
-
-if uploaded_file is None and camera_file is not None:
-    uploaded_file = camera_file
-
-# User Details
-
-with c3:
-
-    age = st.number_input(
-        "Age",
-        10,
-        100,
-        22
-    )
-
-with c4:
-
-    gender = st.selectbox(
-        "Gender",
-        ["Male","Female"]
-    )
-
-with c5:
-
-    height_cm = st.number_input(
-        "Height",
-        120,
-        220,
-        170
-    )
-
-with c6:
-
-    weight = st.number_input(
-        "Weight",
-        30,
-        180,
-        70
-    )
-
-height = height_cm / 100
-
-bmi = calculate_bmi(
-    weight,
-    height
-)
-
-bmi_status = bmi_category(
-    bmi
-)
-
-# Analyze Button
-
-with c7:
-
-    st.write("")
-
-    analyze_btn = st.button(
-        "🚀 Analyze",
-        use_container_width=True,
-        disabled=uploaded_file is None
-    )
-
-st.write("")
-
-# ==========================================================
-# MAIN DASHBOARD
-# ==========================================================
-
-left_col, right_col = st.columns(
-    [1.2,1]
-)
-# ==========================================================
-# LEFT PANEL
-# ==========================================================
-
-with left_col:
-
-    st.markdown("## 📷 Food Image")
-
-    if uploaded_file is None:
-
-        st.markdown("""
-        <div class="glass-card"
-        style="
-        height:450px;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        flex-direction:column;
-        ">
-
-        <h1 style="font-size:80px;">🍽️</h1>
-
-        <h3>No Image Selected</h3>
-
-        <p>
-        Upload or capture a food image to begin.
-        </p>
-
+    st.markdown('<h2 style="margin-top:0;">🍽️ System Control Workspace</h2>', unsafe_allow_html=True)
+    st.markdown("---")
+    
+    st.markdown("### 🧬 User Profile Metadata")
+    input_age = st.number_input("Age Profile (Years)", min_value=1, max_value=120, value=25)
+    input_gender = st.selectbox("Biological Sex", ["Male", "Female", "Non-Binary"])
+    input_height = st.number_input("Height Metric (cm)", min_value=50.0, max_value=250.0, value=170.0)
+    input_weight = st.number_input("Weight Metric (kg)", min_value=10.0, max_value=300.0, value=75.0)
+    
+    # Live BMI Calculation Module Evaluation Processing
+    user_bmi, user_category = calculate_bmi(input_weight, input_height)
+    st.markdown("<br>", unsafe_allow_html=True)
+    components.bmi_card(user_bmi, user_category)
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ Engine Matrix Core Status")
+    st.markdown("""
+        <div style="font-size:13px; color:#94A3B8; line-height:1.8;">
+            🟢 EfficientNetB0 Architecture: <span style="color:#10B981;font-weight:600;">READY</span><br>
+            🟢 Gemini 2.5 Flash Interface: <span style="color:#10B981;font-weight:600;">CONNECTED</span><br>
+            🟢 Core Dashboard Framework: <span style="color:#10B981;font-weight:600;">ONLINE</span>
         </div>
-        """,
-        unsafe_allow_html=True)
-
-    else:
-
-        image, image_bytes = preprocess_image(uploaded_file)
-
-        st.image(
-            image,
-            use_container_width=True
-        )
-
-# ==========================================================
-# RIGHT PANEL
-# ==========================================================
-
-with right_col:
-
-    st.markdown("## 🤖 AI Prediction")
-
-    if uploaded_file is None:
-
-        st.markdown("""
-        <div class="glass-card"
-        style="
-        height:450px;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        flex-direction:column;
-        ">
-
-        <h1 style="font-size:80px;">🧠</h1>
-
-        <h3>Waiting for Image...</h3>
-
-        <p>
-        Prediction will appear here.
-        </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True)
-
-    else:
-
-        if analyze_btn:
-
-            with st.spinner("Analyzing Food..."):
-
-                prediction, confidence, top5 = predict_food(image)
-
-                st.session_state.prediction = prediction
-
-                st.session_state.confidence = confidence
-
-                st.session_state.top5 = top5
-
-                user_context = f"""
-
-Age : {age}
-
-Gender : {gender}
-
-Height : {height_cm}
-
-Weight : {weight}
-
-BMI : {bmi:.2f}
-
-BMI Status : {bmi_status}
-
-Predicted Food : {prediction}
-
-Confidence : {confidence:.2f}
-
-"""
-
-                analysis = generate_ai_response(
-                    image_bytes,
-                    user_context
-                )
-
-                st.session_state.analysis = analysis
-
-# ==========================================================
-# SHOW PREDICTION
-# ==========================================================
-
-if st.session_state.prediction is not None:
-
-    st.write("")
-
-    dish_name = st.session_state.analysis.get(
-    "dish_name",
-    st.session_state.prediction.replace("_", " ").title()
-)
-
-    st.markdown(f"""
-    <div class="prediction-card">
-
-    <h4>🍽 Identified Dish</h4>
-
-    <h1>{dish_name}</h1>
-
-    <p>
-    Identified using Gemini AI after visual verification.
-    </p>
-
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown(f"""
-    <div class="glass-card">
-
-    <h4>🧠 CNN Prediction</h4>
-
-    <p><b>{st.session_state.prediction.replace("_"," ").title()}</b></p>
-
-    <p>
-    Confidence: <b>{st.session_state.confidence:.2f}%</b>
-    </p>
-
-    </div>
     """, unsafe_allow_html=True)
 
-    st.write("")
+# 5. PRESENTATION GRID LAYOUT ARCHITECTURE (Side-by-Side Segment)
+left_panel, right_panel = st.columns([1.1, 1.3], gap="large")
 
-    top_predictions(
+with left_panel:
+    st.markdown("### 📥 Image Capture Pipeline Input")
+    source_selection = st.radio("Primary Sensor Selection Channel", ["Upload Image Signature Asset File", "Access System Device Camera Feed Layer"], label_visibility="collapsed")
+    
+    file_stream = None
+    if "Upload Image" in source_selection:
+        file_stream = st.file_uploader("Drop image target configuration variables stream", type=["jpg", "png", "jpeg"])
+    else:
+        file_stream = st.camera_input("Acquire active spatial vector capture stream frame context")
+        
+    if file_stream is not None:
+        raw_image_data = file_stream.read()
+        image_object = Image.open(io.BytesIO(raw_image_data)).convert("RGB")
+        st.image(image_object, use_container_width=True, caption="Active Memory Frame Object Target Cache")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Core Pipeline Processing Engine Trigger Node
+        compute_matrix = st.button("⚡ EXECUTE ALL LAYER MULTIMODAL INFERENCE PIPELINE")
+    else:
+        components.image_card(image_ready=False)
 
-        st.session_state.top5
-
-    )
-
-# ==========================================================
-# NUTRITION CARDS
-# ==========================================================
-
-analysis = st.session_state.analysis
-
-if analysis:
-
-    st.write("")
-
-    section_title("🍽 Nutrition Information")
-
-    nutrition = analysis.get("nutrition",{})
-
-    c1,c2,c3,c4 = st.columns(4)
-
-    with c1:
-
-        metric_card(
-            "🔥",
-            "Calories",
-            nutrition.get("calories","--")
-        )
-
-    with c2:
-
-        metric_card(
-            "🥩",
-            "Protein",
-            nutrition.get("protein","--")
-        )
-
-    with c3:
-
-        metric_card(
-            "🧈",
-            "Fat",
-            nutrition.get("fat","--")
-        )
-
-    with c4:
-
-        metric_card(
-            "🌾",
-            "Carbs",
-            nutrition.get("carbohydrates","--")
-        )
-# ==========================================================
-# AI INSIGHTS
-# ==========================================================
-
-if analysis:
-
-    st.write("")
-
-    section_title("🤖 AI Insights")
-
-    tab1, tab2, tab3, tab4 = st.tabs(
-        [
-            "🥗 Ingredients",
-            "👨‍🍳 Recipe",
-            "❤️ Recommendation",
-            "🔄 Alternatives"
-        ]
-    )
-
-    # ======================================================
-    # INGREDIENTS
-    # ======================================================
-
-    with tab1:
-
-        ingredients = analysis.get(
-            "ingredients",
-            []
-        )
-
-        info_card(
-            "Ingredients",
-            ingredients
-        )
-
-    # ======================================================
-    # RECIPE
-    # ======================================================
-
-    with tab2:
-
-        recipe = analysis.get(
-            "recipe",
-            []
-        )
-
-        st.markdown(
-            '<div class="glass-card">',
-            unsafe_allow_html=True
-        )
-
-        st.subheader("👨‍🍳 Recipe")
-
-        if recipe:
-
-            for i, step in enumerate(recipe, 1):
-
-                st.markdown(
-                    f"""
-### Step {i}
-
-{step}
-
----
-"""
+with right_panel:
+    st.markdown("### 🖥️ Deep Interactive Evaluation Terminal")
+    
+    if file_stream is not None and 'compute_matrix' in locals() and compute_matrix:
+        with st.spinner("Executing Pipeline Sequence: Ingesting -> Verifying..."):
+            
+            # Step 1: Gemini Image Verification Strategy Layer
+            verification_audit = detect_food_image(raw_image_data)
+            st.session_state.verification_audit = verification_audit
+            
+            if verification_audit.get("api_error"):
+                st.error("☁️ Gemini API Capacity Alert")
+                st.warning("The AI service is experiencing high traffic spikes. Please wait 5 seconds and click the Analyze button again.")
+                st.session_state.analysis = None
+            
+            elif not verification_audit.get("is_food", True):
+                components.food_not_detected_card(
+                    verification_audit.get("object_name", "Unknown Entity"),
+                    verification_audit.get("description", "No explicit sensory frame details generated."),
+                    verification_audit.get("reason", "Structural vector anomaly evaluation failed signature metrics verification profiles pattern mismatch logic.")
                 )
+                st.session_state.analysis = verification_audit
+            else:
+                # Step 2: Spatial CNN Classification Mapping execution
+                top_prediction, top_confidence, distribution_matrix = predict_food(image_object, label_indices)
+                st.session_state.prediction = top_prediction
+                st.session_state.confidence = top_confidence
+                st.session_state.top5 = distribution_matrix
+                
+                # Step 3: Run Gemini AI Core Food Analysis combined with recommendation layers metrics engine
+                payload_matrix = generate_ai_response(
+                    image_bytes=raw_image_data,
+                    cnn_prediction=top_prediction,
+                    confidence=top_confidence,
+                    bmi_status=user_category,
+                    age=input_age,
+                    gender=input_gender
+                )
+                st.session_state.analysis = payload_matrix
 
+    # Persistent top-half rendering context for Classification alerts inside right panel
+    if st.session_state.analysis and st.session_state.analysis.get("is_food", True) and not st.session_state.analysis.get("api_error"):
+        true_dish_name = st.session_state.analysis.get("dish_name", st.session_state.prediction.replace('_', ' ').title())
+        
+        if st.session_state.confidence < 62.0:
+            st.markdown(f"""
+                <div class="glass-card" style="border: 1px solid rgba(245, 158, 11, 0.4) !important; background: rgba(245, 158, 11, 0.05) !important;">
+                    <span style="background:#F59E0B; color:white; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;">⚠️ Multimodal Realignment Active</span>
+                    <h4 style="margin:10px 0 2px 0; color:#94A3B8;">Verified Meal Identity</h4>
+                    <h1 style="margin:0 0 10px 0; color:white; font-size:36px;">{true_dish_name}</h1>
+                    <p style="color:#CBD5E1; font-size:14px; margin:0; line-height:1.5;">
+                        <b>System Notice:</b> The local edge CNN predicted <i>{st.session_state.prediction.replace('_', ' ').title()}</i> with low confidence ({st.session_state.confidence:.1f}%). 
+                        The cloud-level multimodal vision alignment layer has intercepted and corrected the output to ensure data integrity.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-
-            st.info(
-                "Recipe unavailable."
-            )
-
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True
-        )
-
-    # ======================================================
-    # RECOMMENDATION
-    # ======================================================
-
-    with tab3:
-
-        recommendation = generate_recommendation(
-            bmi_status,
-            analysis
-        )
-
-        recommendation_card(
-            recommendation
-        )
-
-    # ======================================================
-    # ALTERNATIVES
-    # ======================================================
-
-    with tab4:
-
-        alternatives = analysis.get(
-            "alternatives",
-            []
-        )
-
-        info_card(
-            "Healthier Alternatives",
-            alternatives
-        )
+            components.prediction_card(st.session_state.prediction, st.session_state.confidence)
+            
+        components.top_predictions(st.session_state.top5)
+    elif file_stream is None:
+        st.info("System Engine state idle. Provide media configuration payload target stream elements to start computational execution layers parsing threads routines.")
 
 # ==========================================================
-# FOOTER
+# 6. BREAK OUT OF COLUMNS - FULL WIDTH LOWER DASHBOARD SECTION
 # ==========================================================
+if st.session_state.analysis and st.session_state.analysis.get("is_food", True) and not st.session_state.analysis.get("api_error"):
+    payload_matrix = st.session_state.analysis
+    
+    st.markdown("---")
+    st.markdown("### 📊 Consolidated Nutritional Profile Dashboard Data Elements")
+    
+    # Grid expands natively from left to right across 100% canvas width space 
+    macro_grid = payload_matrix.get("nutrition", {})
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: components.metric_card("🔥", "Calories", macro_grid.get("calories", "N/A"))
+    with m2: components.metric_card("🥩", "Protein Core", macro_grid.get("protein", "N/A"))
+    with m3: components.metric_card("🧈", "Fat Profile", macro_grid.get("fat", "N/A"))
+    with m4: components.metric_card("🌾", "Carbs Matrix", macro_grid.get("carbohydrates", "N/A"))
+    
+    # Broad full-width interactive tabs allocation panel
+    st.markdown("<br>", unsafe_allow_html=True)
+    t1, t2, t3 = st.tabs(["🥗 Ingredient Framework", "👨‍🍳 Cooking Recipe Steps", "🔄 Substitutions & Alternatives"])
+    with t1:
+        components.info_card("Ingredients Formulation Profile Matrix", payload_matrix.get("ingredients", []), "🥗")
+    with t2:
+        components.info_card("Step-by-step Standard Preparation Protocol Sequence", payload_matrix.get("recipe", []), "🍳")
+    with t3:
+        components.info_card("Optimized Low Glycemic Bio-Alternatives Recommendations", payload_matrix.get("alternatives", []), "🥦")
+    
+    # Dynamic Health Assessment module spans fully at the base
+    st.markdown("<br>", unsafe_allow_html=True)
+    components.health_score_card(
+        score=float(payload_matrix.get("health_score", 7.5)),
+        verdict=payload_matrix.get("verdict", "Approved Diet Component"),
+        description=", ".join(payload_matrix.get("suggestions", ["Regulate overall consumption pattern variations parameters."]))
+    )
 
+# ==========================================================
+# 7. FOOTER
+# ==========================================================
 st.write("")
 st.divider()
-
-st.markdown(
-    """
+st.markdown("""
     <center>
-
-    <h3>🍽️ Vision-to-Nutrition</h3>
-    An EfficientNet–Gemini Framework for Intelligent Food Analysis
-    Powered by EfficientNetB0 + Gemini AI
-
+        <h3>🍽️ Vision-to-Nutrition</h3>
+        An EfficientNet–Gemini Framework for Intelligent Food Analysis
+        Powered by EfficientNetB0 + Gemini AI
     </center>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
