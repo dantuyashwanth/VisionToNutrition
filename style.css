@@ -313,3 +313,21 @@ ANIMATIONS
 .glass-card, .prediction-card, .hero-card {
     animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+/* ==========================================================
+   STREAMLIT CLOUD HOSTING SIDEBAR FORCE-EXPAND
+========================================================== */
+@media (max-width: 991px) {
+    /* Prevents Streamlit from completely swallowing your sidebar on tablet/presentation laptops */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        left: 10px !important;
+        background: rgba(30, 41, 59, 0.8) !important;
+        border-radius: 8px !important;
+    }
+}
+
+/* Enhances sidebar stability on the hosted Streamlit Cloud domain */
+[data-testid="stSidebar"] {
+    min-width: 340px !important;
+    max-width: 400px !important;
+}
