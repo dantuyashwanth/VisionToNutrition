@@ -11,7 +11,7 @@ st.set_page_config(
     page_title="Vision-to-Nutrition",
     page_icon="🍃",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded" # Enforces default deployment expansion
 )
 
 # 2. LOAD CUSTOM UI THEME LAYOUT
